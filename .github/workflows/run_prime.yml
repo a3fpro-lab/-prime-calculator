@@ -1,0 +1,39 @@
+name: Run prime calculator
+
+on:
+  workflow_dispatch:
+    inputs:
+      n:
+        description: "Number to check"
+        required: true
+        default: "97"
+      mode:
+        description: "check | list | next | factor"
+        required: true
+        default: "check"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run calculator
+        run: |
+          if [ "${{ inputs.mode }}" = "check" ]; then
+            python prime_calculator.py --check ${{ inputs.n }}
+          elif [ "${{ inputs.mode }}" = "list" ]; then
+            python prime_calculator.py --list ${{ inputs.n }}
+          elif [ "${{ inputs.mode }}" = "next" ]; then
+            python prime_calculator.py --next ${{ inputs.n }}
+          elif [ "${{ inputs.mode }}" = "factor" ]; then
+            python prime_calculator.py --factor ${{ inputs.n }}
+          else
+            echo "Unknown mode"
+            exit 1
+          fi

@@ -1,95 +1,114 @@
-#!/usr/bin/env python3
-import math
-import argparse
+name: Run prime calculator
 
-def is_prime(n: int) -> bool:
-    if n <= 1:
-        return False
-    if n <= 3:
-        return True
-    if n % 2 == 0:
-        return False
-    r = int(math.isqrt(n))
-    for k in range(3, r + 1, 2):
-        if n % k == 0:
-            return False
-    return True
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        description: Operation to perform
+        options: [check, list, next, factor]
+        default: check
+      n:
+        type: string
+        description: "Positive integer (required)"
+        required: true
 
-def primes_up_to(N: int):
-    if N < 2:
-        return []
-    sieve = [True] * (N + 1)
-    sieve[0] = sieve[1] = False
-    for p in range(2, int(math.isqrt(N)) + 1):
-        if sieve[p]:
-            step = p
-            start = p * p
-            sieve[start:N+1:step] = [False] * (((N - start) // step) + 1)
-    return [i for i, ok in enumerate(sieve) if ok]
+jobs:
+  calculate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-def next_prime(n: int) -> int:
-    if n < 2:
-        return 2
-    x = n + 1
-    if x % 2 == 0:
-        x += 1
-    while not is_prime(x):
-        x += 2
-    return x
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-def factorize(n: int):
-    n = abs(n)
-    factors = []
-    if n < 2:
-        return factors
-    while n % 2 == 0:
-        factors.append(2)
-        n //= 2
-    f = 3
-    while f * f <= n:
-        while n % f == 0:
-            factors.append(f)
-            n //= f
-        f += 2
-    if n > 1:
-        factors.append(n)
-    return factors
+      - name: Install dependencies (none needed, but keeps it clean)
+        run: python -m pip install --upgrade pip
 
-def main():
-    ap = argparse.ArgumentParser(description="Prime calculator (check, list, next, factorize).")
-    ap.add_argument("--check", type=int, help="Check if n is prime.")
-    ap.add_argument("--list", type=int, help="List primes up to N.")
-    ap.add_argument("--next", dest="nextn", type=int, help="Next prime after n.")
-    ap.add_argument("--factor", type=int, help="Prime factorization of n.")
-    args = ap.parse_args()
+      - name: Create prime_calculator.py
+        run: cat > prime_calculator.py <<'EOF'
+        import argparse
+        import math
+        import sys
 
-    did = False
+        def is_prime(n: int) -> bool:
+            if n <= 1:
+                return False
+            if n <= 3:
+                return True
+            if n % 2 == 0 or n % 3 == 0:
+                return False
+            i = 5
+            while i * i <= n:
+                if n % i == 0 or n % (i + 2) == 0:
+                    return False
+                i += 6
+            return True
 
-    if args.check is not None:
-        n = args.check
-        print(f"{n} is prime" if is_prime(n) else f"{n} is NOT prime")
-        did = True
+        def next_prime(n: int) -> int:
+            candidate = n + 1 if n % 2 == 0 else n + 2
+            while not is_prime(candidate):
+                candidate += 2
+            return candidate
 
-    if args.list is not None:
-        N = args.list
-        ps = primes_up_to(N)
-        print(f"Primes up to {N} ({len(ps)}):")
-        print(ps)
-        did = True
+        def list_primes(limit: int):
+            if limit < 2:
+                return []
+            primes = [2]
+            for num in range(3, limit + 1, 2):
+                if all(num % p != 0 for p in primes):
+                    primes.append(num)
+            return primes
 
-    if args.nextn is not None:
-        n = args.nextn
-        print(f"Next prime after {n} is {next_prime(n)}")
-        did = True
+        def factorize(n: int):
+            if n <= 1:
+                return []
+            factors = []
+            # 2s
+            while n % 2 == 0:
+                factors.append(2)
+                n //= 2
+            # odd factors
+            f = 3
+            while f * f <= n:
+                while n % f == 0:
+                    factors.append(f)
+                    n //= f
+                f += 2
+            if n > 1:
+                factors.append(n)
+            return factors
 
-    if args.factor is not None:
-        n = args.factor
-        fs = factorize(n)
-        print(f"Prime factors of {n}: {fs}")
-        did = True
+        def main():
+            parser = argparse.ArgumentParser(description="Prime calculator tools")
+            group = parser.add_mutually_exclusive_group(required=True)
+            group.add_argument("--check", type=int, metavar="N", help="Check if N is prime")
+            group.add_argument("--list", type=int, metavar="N", help="List all primes <= N")
+            group.add_argument("--next", type=int, metavar="N", help="Find the smallest prime > N")
+            group.add_argument("--factor", type=int, metavar="N", help="Prime factorization of N")
 
-    if not did:
-        ap.print_help()
+            args = parser.parse_args()
 
-if __name__ == "__main__":
-    main()
+            if args.check is not None:
+                print("Yes" if is_prime(args.check) else "No")
+            elif args.list is not None:
+                print(" ".join(map(str, list_primes(args.list))))
+            elif args.next is not None:
+                print(next_prime(args.next))
+            elif args.factor is not None:
+                print(" × ".join(map(str, factorize(args.factor))) or "1")
+
+        if __name__ == "__main__":
+            main()
+        EOF
+
+      - name: Run prime calculator
+        run: |
+          python prime_calculator.py \
+            ${{ inputs.mode == 'check' && '--check' || '' }} \
+            ${{ inputs.mode == 'list' && '--list' || '' }} \
+            ${{ inputs.mode == 'next' && '--next' || '' }} \
+            ${{ inputs.mode == 'factor' && '--factor' || '' }} \
+            "${{ inputs.n }}"

@@ -3,48 +3,34 @@ name: Run prime calculator
 on:
   workflow_dispatch:
     inputs:
-      n:
-        description: "Number"
-        required: true
-        default: "97"
       mode:
-        description: "check | list | next | factor"
+        type: choice
+        options: [check, list, next, factor]
+        default: check
+      n:
+        description: "integer"
         required: true
-        default: "check"
 
 jobs:
   run:
     runs-on: ubuntu-latest
-    env:
-      N: ${{ github.event.inputs.n }}
-      MODE: ${{ github.event.inputs.mode }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Run calculator
-        shell: bash
+      - name: Run
         run: |
-          echo "MODE=$MODE  N=$N"
-          case "$MODE" in
-            check)
-              python prime_calculator.py --check "$N"
-              ;;
-            list)
-              python prime_calculator.py --list "$N"
-              ;;
-            next)
-              python prime_calculator.py --next "$N"
-              ;;
-            factor)
-              python prime_calculator.py --factor "$N"
-              ;;
-            *)
-              echo "Unknown mode: $MODE"
-              exit 1
-              ;;
-          esac
+          if [ "${{ inputs.mode }}" = "check" ]; then
+            python prime_calculator.py --check "${{ inputs.n }}"
+          elif [ "${{ inputs.mode }}" = "list" ]; then
+            python prime_calculator.py --list "${{ inputs.n }}"
+          elif [ "${{ inputs.mode }}" = "next" ]; then
+            python prime_calculator.py --next "${{ inputs.n }}"
+          elif [ "${{ inputs.mode }}" = "factor" ]; then
+            python prime_calculator.py --factor "${{ inputs.n }}"
+          else
+            echo "Unknown mode"
+            exit 1
+          fi
